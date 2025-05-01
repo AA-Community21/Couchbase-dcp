@@ -1,16 +1,10 @@
 package com.tcket;
 
-import com.couchbase.client.core.deps.io.netty.buffer.ByteBuf;
 import com.couchbase.client.dcp.Client;
-import com.couchbase.client.dcp.DataEventHandler;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.highlevel.*;
-import com.couchbase.client.dcp.highlevel.internal.CollectionIdAndKey;
 import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
-import com.couchbase.client.dcp.message.DcpMutationMessage;
-import com.couchbase.client.dcp.message.MessageUtil;
-import com.couchbase.client.dcp.transport.netty.ChannelFlowController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,27 +28,11 @@ public class CouchbaseReader extends Thread {
                 .scopeName(bucketName)
                 .build();
 
-//        registerListener();
-
-        client.dataEventHandler((flowController, event) -> {
-            handleChange(event);
-            flowController.ack(event);
-        });
+       registerListener();
 
         start();
     }
 
-    private void handleChange(ByteBuf event) {
-        if(DcpMutationMessage.is(event)) {
-            String key = MessageUtil.getKeyAsString(event);
-            String content = MessageUtil.getContentAsString(event);
-            CollectionIdAndKey collecionId =  MessageUtil.getCollectionIdAndKey(event, true);
-            collecionId.collectionId();
-            collecionId.key();
-            LOGGER.info("Received DCP change {}, {}, {}, {} : {}", key, collecionId.collectionId(), collecionId.key(), content);
-
-        }
-    }
 
     private void registerListener() {
         client.nonBlockingListener(new DatabaseChangeListener() {
