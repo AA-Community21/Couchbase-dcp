@@ -4,20 +4,24 @@ import com.couchbase.client.dcp.Client;
 import com.couchbase.client.dcp.StreamFrom;
 import com.couchbase.client.dcp.StreamTo;
 import com.couchbase.client.dcp.highlevel.*;
-import com.couchbase.client.dcp.highlevel.internal.CollectionsManifest;
+import jakarta.annotation.PostConstruct;
+import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 
 public class CouchbaseReader extends Thread {
     private static final Logger LOGGER = LoggerFactory.getLogger(CouchbaseReader.class);
 
+    @Inject
+    @Qualifier("databaseChangeListener")
+    private DatabaseChangeListener couchbaseDataListener;
+
     private final Client client;
     private final CountDownLatch connectionAttemptComplete = new CountDownLatch(1);
     private volatile boolean connected;
-
 
     public CouchbaseReader(String connectionString, String username, String password, String bucketName, String collectionName) {
         client = Client.builder()
@@ -27,53 +31,17 @@ public class CouchbaseReader extends Thread {
                 .collectionsAware(true)
                 .scopeName(bucketName)
                 .build();
+    }
 
-       registerListener();
-
+    @PostConstruct
+    public void init() {
+        registerListener();
         start();
     }
 
 
     private void registerListener() {
-        client.nonBlockingListener(new DatabaseChangeListener() {
-            @Override
-            public void onMutation(Mutation mutation) {
-                handleChange(mutation);
-            }
-
-            @Override
-            public void onDeletion(Deletion deletion) {
-                handleChange(deletion);
-            }
-
-            @Override
-            public void onFailure(StreamFailure failure) {
-                LOGGER.error("Stream failure occurred: {}", failure.getCause().toString());
-            }
-
-            @Override
-            public void onStreamEnd(StreamEnd streamEnd) {
-                LOGGER.info("Stream ended: {}", streamEnd.getReason());
-            }
-
-            private void handleChange(DocumentChange change) {
-                try {
-                    String content = new String(change.getContent(), StandardCharsets.UTF_8);
-
-                    CollectionsManifest.CollectionInfo collectionInfo = change.getCollection();
-
-
-                    LOGGER.info("Collection ID: {}, Collection Name: {}, Scope: {}",
-                            collectionInfo.id(), collectionInfo.name(), collectionInfo.scope());
-
-                    LOGGER.info("Received DCP change {}, {}, {}, {} : {}",change.getKey(), change.getCollection(), change.getTimestamp(), change.getVbucket(), content);
-
-
-                } catch (Exception ex) {
-                    LOGGER.error("Error processing DCP change", ex);
-                }
-            }
-        });
+        client.nonBlockingListener(couchbaseDataListener);
     }
 
     @Override
