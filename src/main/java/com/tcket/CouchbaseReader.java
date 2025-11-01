@@ -19,6 +19,15 @@ public class CouchbaseReader extends Thread {
     @Qualifier("databaseChangeListener")
     private DatabaseChangeListener couchbaseDataListener;
 
+    @Inject
+    private CouchbaseEventHandler couchbaseEventHandler;
+
+    @Inject
+    private CouchbaseControlHandler couchbaseControlHandler;
+
+    @Inject
+    private CouchbaseSystemHandler couchbaseSystemHandler;
+
     private final Client client;
     private final CountDownLatch connectionAttemptComplete = new CountDownLatch(1);
     private volatile boolean connected;
@@ -42,6 +51,9 @@ public class CouchbaseReader extends Thread {
 
     private void registerListener() {
         client.nonBlockingListener(couchbaseDataListener);
+//        client.controlEventHandler(couchbaseControlHandler);
+//        client.systemEventHandler(couchbaseSystemHandler);
+//        client.dataEventHandler(couchbaseEventHandler);
     }
 
     @Override
